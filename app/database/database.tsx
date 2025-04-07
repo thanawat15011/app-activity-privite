@@ -61,9 +61,31 @@ export async function fetchActivities() {
     shaking: number;
     show_more: number;
   }>('SELECT * FROM activity');
-  console.log('result',result)
   return result;
 }
+
+export async function fetchActivitiesByID(activityId: number) {
+    if (!db) await openDB();
+  
+    const result = await db.getAllAsync<{
+      activity_id: number;
+      activity_name: string;
+      activity_detail: string;
+      activity_type: number;
+      importance: number;
+      urgent: number;
+      datetime: string;
+      notification_sound: number;
+      shaking: number;
+      show_more: number;
+    }>(
+      'SELECT * FROM activity WHERE activity_id = ?',
+      [activityId]
+    );
+  
+    return result;
+  }
+  
 
 export async function deleteActivity(activityId: number) {
     if (!db) await openDB();
@@ -76,6 +98,41 @@ export async function deleteActivity(activityId: number) {
     console.log(`🗑️ Deleted activity with ID: ${activityId}`);
   }
 
+  export async function updateActivity(data) {
+    console.log('updateActivity => ', data);
+    if (!db) await openDB();
+  
+    await db.runAsync(
+      `
+      UPDATE activity SET 
+        activity_name = ?,
+        activity_detail = ?,
+        activity_type = ?,
+        importance = ?,
+        urgent = ?,
+        datetime = ?,
+        notification_sound = ?,
+        shaking = ?,
+        show_more = ?
+      WHERE activity_id = ?
+      `,
+      [
+        data.activity_name,
+        data.activity_detail,
+        data.activity_type,
+        data.importance,
+        data.urgent,
+        data.datetime,
+        data.notification_sound,
+        data.shaking,
+        data.show_more,
+        data.activity_id, // ต้องใส่ id ตรงนี้ไว้ท้ายสุด
+      ]
+    );
+  
+    console.log('✅ Updated activity');
+  }
+  
 // Initialize database
 export async function initDatabase() {
   await openDB();

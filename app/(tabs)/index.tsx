@@ -79,8 +79,8 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadActivities(); // ทุกครั้งที่หน้าถูก focus จะทำการโหลดกิจกรรม
-    }, [])  // [] หมายความว่าทำงานเพียงครั้งเดียวเมื่อหน้าถูก focus
+      loadActivities();
+    }, [])  
   );
 
   const loadActivities = async () => {

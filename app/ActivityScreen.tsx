@@ -15,11 +15,13 @@ import {
   createTable,
   insertExampleActivity,
   fetchActivities,
-  deleteActivity
+  deleteActivity,
+  fetchActivitiesByID,
+  updateActivity
 } from "./database/database";
 import { RouteProp } from '@react-navigation/native';
+import { useLocalSearchParams } from 'expo-router';
 
-// กำหนดประเภทของ params
 type RootStackParamList = {
   ActivityScreen: { id: string };
 };
@@ -29,13 +31,13 @@ type ActivityScreenRouteProp = RouteProp<RootStackParamList, 'ActivityScreen'>;
 interface ActivityScreenProps {
   route: ActivityScreenRouteProp;
 }
-const ActivityScreen: React.FC<ActivityScreenProps> = ({ route }) => {
-  console.log('route' ,route)
-  // const { id } = route.params;
+const ActivityScreen: React.FC<ActivityScreenProps> = () => {
   const navigation = useNavigation();
+  const { id } = useLocalSearchParams();
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [data, setData] = useState<{
+    activity_id: number;
     activity_name: string;
     activity_detail: string;
     activity_type: number;
@@ -46,6 +48,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ route }) => {
     shaking: boolean;
     show_more: boolean;
   }>({
+    activity_id: 0,
     activity_name: "", 
     activity_detail: "",
     activity_type: 0,
@@ -56,10 +59,39 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ route }) => {
     shaking: false,
     show_more: false
   });
+  useEffect(() => {
+    if (id) {
+      getDataByID();
+    }
+  }, [id]);
+
+  const getDataByID = async () => {
+    try {
+      const result = await fetchActivitiesByID(id);
   
-  // useEffect(() => {
-  //   console.log('Received id:', id);
-  // }, [id]);
+      if (result.length > 0) {
+        const raw = result[0];
+  
+        const transformed = {
+          activity_id: raw.activity_id,
+          activity_name: raw.activity_name,
+          activity_detail: raw.activity_detail,
+          activity_type: raw.activity_type,
+          importance: raw.importance === 1,
+          urgent: raw.urgent === 1,
+          datetime: new Date(raw.datetime),
+          notification_sound: raw.notification_sound === 1,
+          shaking: raw.shaking === 1,
+          show_more: raw.show_more === 1,
+        };
+  
+        setData(transformed);
+        console.log('Transformed Result:', transformed);
+      }
+    } catch (error) {
+      console.error('Error fetching activity:', error);
+    }
+  };
 
   const activityTypes = [
     { id: 1, label: "ออกกำลัง", bgColor: "#D6E5C0" },
@@ -88,9 +120,9 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ route }) => {
   };
 
   const convertToBuddhistYear = (date: Date) => {
-    const year = date.getFullYear() + 543;  // เพิ่ม 543 ปีเพื่อให้เป็น พ.ศ.
-    const month = (date.getMonth() + 1).toString().padStart(2, '0'); // เติม 0 หน้าเมื่อเดือนมีหลักเดียว
-    const day = date.getDate().toString().padStart(2, '0'); // เติม 0 หน้าเมื่อวันมีหลักเดียว
+    const year = date.getFullYear() + 543;
+    const month = (date.getMonth() + 1).toString().padStart(2, '0'); 
+    const day = date.getDate().toString().padStart(2, '0');
     return `${day} / ${month} / ${year}`;
   };
   
@@ -100,25 +132,37 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ route }) => {
 
 
   const addActivity = async () => {
-    try {
-      // ตรวจสอบว่า datetime เป็นอ็อบเจกต์ Date หรือไม่
-      if (data.datetime && !(data.datetime instanceof Date)) {
-        data.datetime = new Date(data.datetime); 
+    if(!id){
+      try {
+        // ตรวจสอบว่า datetime เป็นอ็อบเจกต์ Date หรือไม่
+        if (data.datetime && !(data.datetime instanceof Date)) {
+          data.datetime = new Date(data.datetime); 
+        }
+    
+        const formattedDatetime = data.datetime.toISOString();
+        data.datetime = formattedDatetime;  
+        await insertExampleActivity(data);
+        navigation.goBack();
+      } catch (error) {
+        console.error("Error adding activity:", error);
       }
-  
-      // แปลงเป็น ISO string (รูปแบบที่เหมาะสมสำหรับฐานข้อมูล)
-      const formattedDatetime = data.datetime.toISOString();
-      data.datetime = formattedDatetime;  // อัปเดตค่า datetime
-  
-      // รอให้การเพิ่มกิจกรรมเสร็จสิ้น
-      await insertExampleActivity(data);
-  
-      // ไปหน้าก่อนหน้า
-      navigation.goBack();
-      console.log('data', data);
-    } catch (error) {
-      console.error("Error adding activity:", error);
+    }else if(id){
+      try {
+        // ตรวจสอบว่า datetime เป็นอ็อบเจกต์ Date หรือไม่
+        if (data.datetime && !(data.datetime instanceof Date)) {
+          data.datetime = new Date(data.datetime); 
+        }
+      
+        const formattedDatetime = data.datetime.toISOString();
+        data.datetime = formattedDatetime;
+      
+        await updateActivity(data); // 🔄 เปลี่ยนเป็น update
+        navigation.goBack(); // ⬅️ กลับหน้าก่อนหน้า
+      } catch (error) {
+        console.error("Error updating activity:", error);
+      }      
     }
+
   };
   
 
@@ -140,7 +184,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = ({ route }) => {
           <TouchableOpacity style={styles.backButton}  onPress={handleGoBack}>
             <Text style={styles.backText}>{"<"}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerText}>เพิ่มกิจกรรม</Text>
+          <Text style={styles.headerText}>{id ? 'แก้ไขกิจกรรม' : 'เพิ่มกิจกรรม'}</Text>
         </View>
         
         <View style={styles.titleContainer}>
