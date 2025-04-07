@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,63 +9,165 @@ import {
   StyleSheet,
   Pressable,
 } from "react-native";
+import { useNavigation } from '@react-navigation/native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import {
+  createTable,
+  insertExampleActivity,
+  fetchActivities,
+  deleteActivity
+} from "./database/database";
+import { RouteProp } from '@react-navigation/native';
 
-export default function ActivityScreen() {
-  const [title, setTitle] = useState("");
-  const [details, setDetails] = useState("");
-  const [selectedActivityType, setSelectedActivityType] = useState(null);
-  const [urgent, setUrgent] = useState(false);
-  const [scheduled, setScheduled] = useState(false);
-  const [notificationEnabled, setNotificationEnabled] = useState(false);
-  const [smsEnabled, setSmsEnabled] = useState(false);
-  const [emailEnabled, setEmailEnabled] = useState(false);
+// กำหนดประเภทของ params
+type RootStackParamList = {
+  ActivityScreen: { id: string };
+};
 
-  // Activity type options matching the image
+type ActivityScreenRouteProp = RouteProp<RootStackParamList, 'ActivityScreen'>;
+
+interface ActivityScreenProps {
+  route: ActivityScreenRouteProp;
+}
+const ActivityScreen: React.FC<ActivityScreenProps> = ({ route }) => {
+  console.log('route' ,route)
+  // const { id } = route.params;
+  const navigation = useNavigation();
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [data, setData] = useState<{
+    activity_name: string;
+    activity_detail: string;
+    activity_type: number;
+    importance: boolean;
+    urgent: boolean;
+    datetime: Date;
+    notification_sound: boolean;
+    shaking: boolean;
+    show_more: boolean;
+  }>({
+    activity_name: "", 
+    activity_detail: "",
+    activity_type: 0,
+    importance: false,
+    urgent: false,
+    datetime: new Date(),
+    notification_sound: false,
+    shaking: false,
+    show_more: false
+  });
+  
+  // useEffect(() => {
+  //   console.log('Received id:', id);
+  // }, [id]);
+
   const activityTypes = [
-    { id: "exercise", label: "ออกกำลัง", bgColor: "#D6E5C0" },
-    { id: "medication", label: "ยา", bgColor: "#FFF0A3" },
-    { id: "appointment", label: "พบหมอ", bgColor: "#F9BBCB" },
-    { id: "social", label: "สุขภาพ", bgColor: "#FFB775" },
-    { id: "other", label: "เรียน", bgColor: "#B5D0D2" },
+    { id: 1, label: "ออกกำลัง", bgColor: "#D6E5C0" },
+    { id: 2, label: "ยา", bgColor: "#FFF0A3" },
+    { id: 3, label: "พบหมอ", bgColor: "#F9BBCB" },
+    { id: 4, label: "สุขภาพ", bgColor: "#FFB775" },
+    { id: 5, label: "เรียน", bgColor: "#B5D0D2" },
   ];
+
+  const handleTimeChange = (event, selectedTime) => {
+    const currentTime = selectedTime || data.datetime;
+    setShowTimePicker(false);
+    setData({
+      ...data,
+      datetime: currentTime,
+    });
+  };
+
+  const handleDateChange = (event, selectedDate) => {
+    const currentDate = selectedDate || data.datetime;
+    setShowDatePicker(false);
+    setData({
+      ...data,
+      datetime: currentDate,
+    });
+  };
+
+  const convertToBuddhistYear = (date: Date) => {
+    const year = date.getFullYear() + 543;  // เพิ่ม 543 ปีเพื่อให้เป็น พ.ศ.
+    const month = (date.getMonth() + 1).toString().padStart(2, '0'); // เติม 0 หน้าเมื่อเดือนมีหลักเดียว
+    const day = date.getDate().toString().padStart(2, '0'); // เติม 0 หน้าเมื่อวันมีหลักเดียว
+    return `${day} / ${month} / ${year}`;
+  };
+  
+  const handleGoBack = () => {
+    navigation.goBack();
+  };
+
+
+  const addActivity = async () => {
+    try {
+      // ตรวจสอบว่า datetime เป็นอ็อบเจกต์ Date หรือไม่
+      if (data.datetime && !(data.datetime instanceof Date)) {
+        data.datetime = new Date(data.datetime); 
+      }
+  
+      // แปลงเป็น ISO string (รูปแบบที่เหมาะสมสำหรับฐานข้อมูล)
+      const formattedDatetime = data.datetime.toISOString();
+      data.datetime = formattedDatetime;  // อัปเดตค่า datetime
+  
+      // รอให้การเพิ่มกิจกรรมเสร็จสิ้น
+      await insertExampleActivity(data);
+  
+      // ไปหน้าก่อนหน้า
+      navigation.goBack();
+      console.log('data', data);
+    } catch (error) {
+      console.error("Error adding activity:", error);
+    }
+  };
+  
+
+
+//   const date = new Date('2025-04-06T19:35:00.000Z');
+
+// // แปลงเป็นเวลาไทย (UTC+7)
+// const thaiDate = new Date(date.setHours(date.getHours() + 7));
+
+// // แสดงผลวันที่และเวลา
+// const convertedDate = convertToBuddhistYear(thaiDate);
+// console.log(convertedDate);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Header with back button and title */}
       <View style={styles.header}>
         <View style={styles.topHeader}>
-          <TouchableOpacity style={styles.backButton}>
+          <TouchableOpacity style={styles.backButton}  onPress={handleGoBack}>
             <Text style={styles.backText}>{"<"}</Text>
           </TouchableOpacity>
           <Text style={styles.headerText}>เพิ่มกิจกรรม</Text>
         </View>
         
-        {/* Title input */}
         <View style={styles.titleContainer}>
-          {/* <Text style={styles.titleLabel}>เพิ่มหัวข้อ</Text> */}
           <TextInput
             style={styles.titleInput}
             placeholder="เพิ่มหัวข้อ"
-            value={title}
-            onChangeText={setTitle}
+            value={data.activity_name}
+            onChangeText={(text) => setData({
+              ...data,
+              activity_name: text
+            })}
           />
         <Text style={styles.sectionLabel}>รายละเอียด</Text>
         <TextInput
           style={styles.detailsInput}
           placeholder=""
           multiline
-          value={details}
-          onChangeText={setDetails}
+          value={data.activity_detail}
+          onChangeText={(text) => setData({
+            ...data,
+            activity_detail: text
+          })}
         />
         </View>
       </View>
 
-      {/* Main content */}
       <View style={styles.mainContent}>
-        {/* Details input */}
-
-
-        {/* Activity types */}
         <Text style={styles.sectionLabel}>ประเภทกิจกรรม</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.activityTypesScroll}>
           <View style={styles.activityTypesContainer}>
@@ -75,12 +177,17 @@ export default function ActivityScreen() {
                 style={[
                   styles.activityTypeButton,
                   { backgroundColor: type.bgColor },
-                  selectedActivityType === type.id && styles.selectedActivityType,
+                  data.activity_type === type.id && styles.selectedActivityType,
                 ]}
-                onPress={() => setSelectedActivityType(type.id)}
+                onPress={() => {
+                  setData({
+                    ...data,
+                    activity_type: type.id
+                  })
+                }}
               >
                 <View style={styles.radioCircle}>
-                  {selectedActivityType === type.id && <View style={styles.radioInner} />}
+                  {data.activity_type === type.id && <View style={styles.radioInner} />}
                 </View>
                 <Text style={styles.activityTypeText}>{type.label}</Text>
               </TouchableOpacity>
@@ -88,14 +195,16 @@ export default function ActivityScreen() {
           </View>
         </ScrollView>
 
-        {/* Priority and Schedule checkboxes */}
         <View style={styles.checkboxRowTop}>
           <Text style={styles.checkboxLabel}>สำคัญ</Text>
           <TouchableOpacity 
             style={styles.checkbox} 
-            onPress={() => setUrgent(!urgent)}
+            onPress={() => setData({
+              ...data,
+              importance: !data.importance
+            })}
           >
-            {urgent && <View style={styles.checkboxInner} />}
+            {data.importance && <View style={styles.checkboxInner} />}
           </TouchableOpacity>
         </View>
         <View style={styles.divider} />
@@ -103,26 +212,29 @@ export default function ActivityScreen() {
           <Text style={styles.checkboxLabel}>เร่งด่วน</Text>
           <TouchableOpacity 
             style={styles.checkbox} 
-            onPress={() => setScheduled(!scheduled)}
+            onPress={() => setData({
+              ...data,
+              urgent: !data.urgent
+            })}
           >
-            {scheduled && <View style={styles.checkboxInner} />}
-          </TouchableOpacity>
-        </View>
-
-        {/* Time and Date */}
-        <View style={styles.timeRow}>
-          <Text style={styles.timeText}>13 : 30 น.</Text>
-          <TouchableOpacity style={styles.timeButton}>
-            <Text style={styles.buttonTextSmall}>เวลา</Text>
+            {data.urgent && <View style={styles.checkboxInner} />}
           </TouchableOpacity>
         </View>
 
         <View style={styles.timeRow}>
-          <Text style={styles.timeText}>01 / 11 / 2567</Text>
-          <TouchableOpacity style={styles.timeButton}>
-            <Text style={styles.buttonTextSmall}>วันที่</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.timeText}> {data.datetime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).replace(":", " : ")} น.</Text>
+        <TouchableOpacity style={styles.timeButton} onPress={() => setShowTimePicker(true)}>
+          <Text style={styles.buttonTextSmall}>เวลา</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* เลือกวันที่ */}
+      <View style={styles.timeRow}>
+        <Text style={styles.timeText}>{convertToBuddhistYear(data.datetime)}</Text>
+        <TouchableOpacity style={styles.timeButton} onPress={() => setShowDatePicker(true)}>
+          <Text style={styles.buttonTextSmall}>วันที่</Text>
+        </TouchableOpacity>
+      </View>
 
         <View style={styles.divider}>
           <Text style={styles.dividerText}>การแจ้งเตือน</Text>
@@ -132,57 +244,87 @@ export default function ActivityScreen() {
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>เสียงแจ้งเตือน</Text>
           <Switch 
-            value={notificationEnabled}
-            onValueChange={setNotificationEnabled}
+            value={data.notification_sound}
+            onValueChange={(e) => setData({
+              ...data,
+              notification_sound: e
+            })}
             trackColor={{ false: "#D9D9D9", true: "#6D8A6D" }}
-            thumbColor={notificationEnabled ? "#FFFFFF" : "#F4F4F4"}
+            thumbColor={data.notification_sound ? "#FFFFFF" : "#F4F4F4"}
           />
         </View>
 
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>การสั่น</Text>
           <Switch 
-            value={smsEnabled}
-            onValueChange={setSmsEnabled}
+            value={data.shaking}
+            onValueChange={(e) => setData({
+              ...data,
+              shaking: e
+            })}
             trackColor={{ false: "#D9D9D9", true: "#6D8A6D" }}
-            thumbColor={smsEnabled ? "#FFFFFF" : "#F4F4F4"}
+            thumbColor={data.shaking ? "#FFFFFF" : "#F4F4F4"}
           />
         </View>
 
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>แสดงข้อมูลเพิ่มเติม</Text>
           <Switch 
-            value={emailEnabled}
-            onValueChange={setEmailEnabled}
+            value={data.show_more}
+            onValueChange={(e) => setData({
+              ...data,
+              show_more: e
+            })}
             trackColor={{ false: "#D9D9D9", true: "#6D8A6D" }}
-            thumbColor={emailEnabled ? "#FFFFFF" : "#F4F4F4"}
+            thumbColor={data.show_more ? "#FFFFFF" : "#F4F4F4"}
           />
         </View>
 
-        {/* Save button */}
-        <TouchableOpacity style={styles.saveButton}>
+        <TouchableOpacity style={styles.saveButton} onPress={addActivity}>
           <Text style={styles.saveButtonText}>บันทึก</Text>
         </TouchableOpacity>
       </View>
+
+      {showTimePicker && (
+        <DateTimePicker
+          value={data.datetime}
+          mode="time"
+          is24Hour={true}
+          onChange={handleTimeChange}
+        />
+      )}
+
+      {/* แสดง DateTimePicker สำหรับวันที่ */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={data.datetime}
+          mode="date"
+          onChange={handleDateChange}
+        />
+      )}
     </ScrollView>
   );
 }
+export default ActivityScreen;
 
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: "#FFFAF2",
+    
   },
   header: {
     backgroundColor: "#B5D0D2",
     padding: 20,
     paddingBottom: 30,
+  
   },
   topHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 20,
+    marginTop:20
   },
   backButton: {
     position: "absolute",

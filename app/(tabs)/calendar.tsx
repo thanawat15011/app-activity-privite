@@ -1,23 +1,28 @@
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, Dimensions, useWindowDimensions } from 'react-native';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity } from 'react-native';
 import { useNavigation } from "@react-navigation/native";
+import { useEffect, useState, useRef } from 'react';
 
 export default function CalendarScreen() {
   const today = new Date(); 
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); 
   const navigation = useNavigation();
+  const { height: windowHeight } = useWindowDimensions();
+  const [contentHeight, setContentHeight] = useState(0);
+  const [spacerHeight, setSpacerHeight] = useState(0);
+  const contentRef = useRef(null);
 
   const monthNamesThai = [
     "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
     "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
   ];
 
-  const weekDaysShort = ["อ", "พ", "พฤ", "ศ", "ส", "อ", "จ"];
+  const weekDaysShort = ["อา", "จ" , "อ", "พ", "พฤ", "ศ", "ส"];
 
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay(); 
 
@@ -51,53 +56,87 @@ export default function CalendarScreen() {
     navigation.navigate('ActivityScreen'); 
   };
 
-  return (
-    <ParallaxScrollView headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}>
-      <ThemedView style={styles.titleContainer} style={{ flex: 1 }}>
-        <ThemedText type="title">ปฏิทิน.</ThemedText>
-        <ThemedText type="title">{monthNamesThai[currentMonth]} {currentYear}</ThemedText>
-      </ThemedView>
+  // Calculate the height for the spacer
+  useEffect(() => {
+    if (contentRef.current) {
+      // Use setTimeout to ensure content has been rendered and measured
+      setTimeout(() => {
+        contentRef.current.measure((x, y, width, height, pageX, pageY) => {
+          // Calculate how much space is needed to fill the screen
+          // Subtract some extra space for the header and padding
+          const headerHeight = 100; // Adjust this based on your header height
+          const calculatedSpacerHeight = windowHeight - height - headerHeight;
+          
+          // Set the spacer height to fill the remaining space
+          setSpacerHeight(Math.max(calculatedSpacerHeight, 0));
+        });
+      }, 300);
+    }
+  }, [windowHeight]);
 
-      <ThemedView style={styles.calendarContainer}>
-        {weeks.map((week, weekIndex) => (
-          <View key={weekIndex} style={styles.weekRow}>
-            {week.map((day, dayIndex) => (
-              <View
-                key={dayIndex}
-                style={[
-                  styles.dayContainer,
-                  day.highlight && styles.highlighted,
-                  day.type === "prev" || day.type === "next" ? styles.fade : {},
-                ]}
-              >
-                <Text style={styles.dayAbbr && day.highlight && styles.highlightedText}>
-                  {weekDaysShort[(firstDayOfMonth + dayIndex) % 7]}
-                </Text>
-                <Text style={[styles.dayNumber, day.highlight && styles.highlightedText]}>
-                  {day.date}
-                </Text>
+  return (
+    <View style={styles.container}>
+      <ParallaxScrollView headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}>
+        <View ref={contentRef} onLayout={(event) => {
+          const { height } = event.nativeEvent.layout;
+          setContentHeight(height);
+        }}>
+          <ThemedView style={styles.titleContainer}>
+            <ThemedText type="title">ปฏิทิน</ThemedText>
+            <ThemedText type="title">{monthNamesThai[currentMonth]} {currentYear}</ThemedText>
+          </ThemedView>
+
+          <ThemedView style={styles.calendarContainer}>
+            {weeks.map((week, weekIndex) => (
+              <View key={weekIndex} style={styles.weekRow}>
+                {week.map((day, dayIndex) => (
+                  <View
+                    key={dayIndex}
+                    style={[
+                      styles.dayContainer,
+                      day.highlight && styles.highlighted,
+                      day.type === "prev" || day.type === "next" ? styles.fade : {},
+                    ]}
+                  >
+                    <Text style={[styles.dayAbbr, day.highlight && styles.highlightedText]}>
+                      {weekDaysShort[(dayIndex + 1) % 7]}
+                    </Text>
+                    <Text style={[styles.dayNumber, day.highlight && styles.highlightedText]}>
+                      {day.date}
+                    </Text>
+                  </View>
+                ))}
               </View>
             ))}
-          </View>
-        ))}
-      </ThemedView>
-      <View style={styles.fabContainer}>
-      <TouchableOpacity style={styles.fab} onPress={() => addActivity()}>
+          </ThemedView>
+        </View>
+        
+        {/* Dynamic height spacer */}
+        <View style={{ height: spacerHeight }} />
+      </ParallaxScrollView>
+      
+      {/* FAB positioned absolutely */}
+      <TouchableOpacity style={styles.fab} onPress={addActivity}>
         <Ionicons name="add" size={32} color="white" />
       </TouchableOpacity>
     </View>
-    </ParallaxScrollView>
-
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    position: 'relative',
+  },
   titleContainer: {
     flexDirection: 'column',
     marginBottom: 16,
+    backgroundColor: "#FFFAF2",
+    marginTop:20
   },
   calendarContainer: {
     paddingHorizontal: 10,
+    backgroundColor: "#FFFAF2",
   },
   weekRow: {
     flexDirection: 'row',
@@ -134,15 +173,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'black',
   },
-  fabContainer: {
-    flex: 1,
-    justifyContent: 'flex-end', 
-    alignItems: 'flex-end',     
-    marginBottom: 20,          
-  },
-  
   fab: {
-    position: 'relative', 
+    position: 'absolute',
     width: 60,
     height: 60,
     backgroundColor: '#6B6B4E',
@@ -154,7 +186,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
-    marginRight: 20, 
+    bottom: 20,
+    right: 20,
   },
-  
 });

@@ -1,70 +1,270 @@
-import { Image, StyleSheet, Platform, View, Text, ScrollView } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { Calendar } from "react-native-calendars";
+import {
+  Image,
+  StyleSheet,
+  Platform,
+  View,
+  Text,
+  ScrollView,
+  useWindowDimensions,
+  FlatList 
+} from "react-native";
+import { HelloWave } from "@/components/HelloWave";
+import ParallaxScrollView from "@/components/ParallaxScrollView";
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
+import { TouchableOpacity } from "react-native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { MaterialIcons } from '@expo/vector-icons';
+import { startOfWeek, addDays, isToday, format } from 'date-fns';
+import { th } from 'date-fns/locale';
+import {
+  createTable,
+  insertExampleActivity,
+  fetchActivities,
+  deleteActivity
+} from "../database/database";
 export default function HomeScreen() {
-  const days = [
-    { label: "จ", date: 28 },
-    { label: "อ", date: 29 },
-    { label: "พ", date: 30 },
-    { label: "พฤ", date: 31 },
-    { label: "ศ", date: 1, highlight: true },
-    { label: "ส", date: 2 },
-    { label: "อา", date: 3 },
-  ];
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">1 พฤศจิกายน 2567</ThemedText> 
-      </ThemedView>
+  const navigation = useNavigation();
+  const [activity, setActivity] = useState([]);
+  const [urgent, setUrgent] = useState([]);
+  const [done, setDone] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const { height: windowHeight } = useWindowDimensions();
+  const [contentHeight, setContentHeight] = useState(0);
+  const [spacerHeight, setSpacerHeight] = useState(0);
+  const contentRef = useRef(null);
+  const dayLabels = ["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"];
 
-      <ThemedView style={styles.titleContainer}>
-      
-        {days.map((day, index) => (
-          <View key={index} style={[styles.dayContainer, day.highlight && styles.highlighted]}>
-            <Text style={[styles.dayLabel, day.highlight && styles.highlightedText]}>{day.label}</Text>
-            <Text style={[styles.dayNumber, day.highlight && styles.highlightedText]}>{day.date}</Text>
+    const today = new Date();
+    const startWeek = startOfWeek(today, { weekStartsOn: 1 }); 
+  
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(startWeek, i);
+      return {
+        label: dayLabels[i],
+        date: date.getDate(),
+        highlight: isToday(date),
+      };
+    });
+  
+  const addActivity = () => {
+    navigation.navigate("ActivityScreen");
+  };
+
+  const updateActivity = (id: string) => {
+    console.log('id:', id);
+    navigation.navigate("ActivityScreen", { id: id });
+  };
+
+  useEffect(() => {
+    createTable();
+    // insertExampleActivity();
+    if (contentRef.current) {
+      // Use setTimeout to ensure content has been rendered and measured
+      setTimeout(() => {
+        contentRef.current.measure((x, y, width, height, pageX, pageY) => {
+          // Calculate how much space is needed to fill the screen
+          // Subtract some extra space for the header and padding
+          const headerHeight = 100; // Adjust this based on your header height
+          const calculatedSpacerHeight = windowHeight - height - headerHeight;
+
+          // Set the spacer height to fill the remaining space
+          setSpacerHeight(Math.max(calculatedSpacerHeight, 0));
+        });
+      }, 300);
+    }
+  }, [windowHeight]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadActivities(); // ทุกครั้งที่หน้าถูก focus จะทำการโหลดกิจกรรม
+    }, [])  // [] หมายความว่าทำงานเพียงครั้งเดียวเมื่อหน้าถูก focus
+  );
+
+  const loadActivities = async () => {
+    try {
+      // สำหรับ expo-sqlite เวอร์ชัน 15+
+      const result:any = await fetchActivities();
+      setActivity(result);
+      setLoading(false);
+      console.log('activity',  activity)
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+      setLoading(false);
+    }
+  };
+
+  const getTimeFromDateTime = (datetime) => {
+    const date = new Date(datetime);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`; // หรือ `${hours}:${minutes} น.` ถ้าอยากใส่ "น."
+  };
+
+  const formatThaiDate = (date: Date) => {
+    const formatted = format(date, 'd MMMM yyyy', { locale: th });
+    const yearBE = date.getFullYear() + 543;
+    return formatted.replace(`${date.getFullYear()}`, `${yearBE}`);
+  };
+  
+  const Card = ({ id ,title, time, done, setDone, onEdit, onDelete }) => {
+    const timeData = new Date(time);
+    return (
+      <View style={[styles.card, done && styles.cardDone]}>
+        <View style={styles.cardContent}>
+          <View style={styles.leftSection}>
+            <TouchableOpacity
+              style={[styles.checkbox, done && styles.checkboxDone]}
+              onPress={() => setDone(!done)}
+            >
+              {done && <Text style={styles.checkmark}>✔️</Text>}
+            </TouchableOpacity>
+            <Text style={[styles.title, done && styles.titleDone]}>{title}</Text>
           </View>
-        ))}
+  
+          <Text style={styles.timeText}>{timeData.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).replace(":", " : ")}</Text>
+  
+          <View style={styles.iconGroup}>
+            <TouchableOpacity onPress={onEdit}>
+              <MaterialIcons name="edit" size={20} color="#555" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onDelete} style={{ marginLeft: 10 }}>
+              <MaterialIcons name="delete" size={20} color="#b00020" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  };
+ 
+  return (
+    <View style={styles.container}>
+      <ParallaxScrollView
+        headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
+        headerImage={
+          <Image
+            source={require("@/assets/images/partial-react-logo.png")}
+            style={styles.reactLogo}
+          />
+        }
+      >
+        <View
+          ref={contentRef}
+          onLayout={(event) => {
+            const { height } = event.nativeEvent.layout;
+            setContentHeight(height);
+          }}
+        >
+          <ThemedView style={styles.topContainer}>
+            <ThemedText type="title">{formatThaiDate(new Date())}</ThemedText>
+          </ThemedView>
+
+          <ThemedView style={styles.titleContainer}>
+            {days.map((day, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.dayContainer,
+                  day.highlight && styles.highlighted,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.dayLabel,
+                    day.highlight && styles.highlightedText,
+                  ]}
+                >
+                  {day.label}
+                </Text>
+                <Text
+                  style={[
+                    styles.dayNumber,
+                    day.highlight && styles.highlightedText,
+                  ]}
+                >
+                  {day.date}
+                </Text>
+              </View>
+            ))}
+          </ThemedView>
+
     
-      </ThemedView>
-
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">กิจกรรม</ThemedText>
+        </View>
         
-      </ThemedView>
+        <ThemedText type="subtitle">กิจกรรม</ThemedText>
 
-    </ParallaxScrollView>
+        <View style={styles.centeredContainer}>
+
+        {loading ? (
+          <Text>กำลังโหลด...</Text>
+        ) : activity.length > 0 ? (
+          activity.map((item, index) => (
+            <Card
+              key={index}
+              id={item.activity_id}
+              title={item.activity_name}
+              time={item.datetime}
+              done={done}
+              setDone={setDone}
+              onEdit={() => updateActivity(item.activity_id)}
+              onDelete={() => console.log('Delete')}
+            />
+
+          ))
+        ) : (
+          <Text style={styles.fadedText}>ไม่มีการแจ้งเตือน</Text>
+        )}
+      </View>
+        <View style={{ height: spacerHeight }} />
+      </ParallaxScrollView>
+
+      {/* FAB positioned absolutely */}
+      <TouchableOpacity style={styles.fab} onPress={addActivity}>
+        <Ionicons name="add" size={32} color="white" />
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center', 
-    justifyContent: 'center', 
+  container: {
+    flex: 1,
+    position: "relative",
+    backgroundColor: "#FFFAF2",
+  },
+  topContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
+    marginTop: 30,
+    backgroundColor: "#FFFAF2",
+  },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#FFFAF2",
+  },
+  centeredContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fffcf4",
   },
   stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+    backgroundColor: "#FFFAF2",
+    flexGrow: 1,
   },
   reactLogo: {
     height: 178,
     width: 290,
     bottom: 0,
     left: 0,
-    position: 'absolute',
+    position: "absolute",
   },
   calendarContainer: {
     flexDirection: "row",
@@ -92,5 +292,98 @@ const styles = StyleSheet.create({
   },
   highlightedText: {
     color: "white",
+  },
+  fabSpacer: {
+    height: 80,
+  },
+  fab: {
+    position: "absolute",
+    width: 60,
+    height: 60,
+    backgroundColor: "#6B6B4E",
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+    bottom: 20,
+    right: 20,
+  },
+  fadedText: {
+    opacity: 0.5,
+    color: "black",
+    fontSize: 18,
+  },
+
+  card: {
+    width: 350,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 10,
+    marginVertical: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardDone: {
+    backgroundColor: '#ddd', // เทาอ่อนเมื่อเสร็จ
+  },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  leftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 2,
+    borderColor: '#888',
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  
+  checkboxDone: {
+    backgroundColor: '#ddd',
+    borderColor: 'back',
+  },
+  
+  checkmark: {
+    fontSize: 16,
+    color: '#2e7d32', // สีเขียวเข้ม
+  },
+  checkboxInner: {
+    width: 12,
+    height: 12,
+    backgroundColor: '#fff',
+    borderRadius: 2,
+  },
+  title: {
+    fontSize: 16,
+    color: '#333',
+  },
+  titleDone: {
+    textDecorationLine: 'line-through',
+    color: '#222',
+  },
+  timeText: {
+    fontSize: 14,
+    color: '#333',
+    marginHorizontal: 10,
+  },
+  iconGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 });

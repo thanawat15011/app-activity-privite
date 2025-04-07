@@ -53,6 +53,7 @@ const styles = StyleSheet.create({
     gap: 16,
     overflow: 'hidden',
     justifyContent: 'space-between', 
+    backgroundColor: "#FFFAF2",
   },
   
 });
