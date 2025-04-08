@@ -32,7 +32,7 @@ export async function createTable() {
 }
 
 // Insert example
-export async function insertExampleActivity(data) {
+export async function insertExampleActivity(data :any) {
     console.log('insertExampleActivity => ', data)
     if (!db) await openDB();
     
@@ -98,7 +98,7 @@ export async function deleteActivity(activityId: number) {
     console.log(`🗑️ Deleted activity with ID: ${activityId}`);
   }
 
-  export async function updateActivity(data) {
+  export async function updateActivity(data :any) {
     console.log('updateActivity => ', data);
     if (!db) await openDB();
   

@@ -27,15 +27,29 @@ import {
 } from "../database/database";
 export default function HomeScreen() {
   const navigation = useNavigation();
-  const [activity, setActivity] = useState([]);
   const [urgent, setUrgent] = useState([]);
-  const [done, setDone] = useState(null);
+  const [done, setDone] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const { height: windowHeight } = useWindowDimensions();
   const [contentHeight, setContentHeight] = useState(0);
   const [spacerHeight, setSpacerHeight] = useState(0);
-  const contentRef = useRef(null);
+  const contentRef = useRef<View | null>(null);
   const dayLabels = ["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"];
+  interface CardProps {
+    id: string;
+    title: string;
+    time: string;
+    done: boolean;
+    setDone: (done: boolean) => void;
+    onEdit: () => void;
+    onDelete: () => void;
+  }
+  interface ActivityItem {
+    activity_id: string;
+    activity_name: string;
+    datetime: string;
+  }
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
 
     const today = new Date();
     const startWeek = startOfWeek(today, { weekStartsOn: 1 }); 
@@ -60,20 +74,12 @@ export default function HomeScreen() {
 
   useEffect(() => {
     createTable();
-    // insertExampleActivity();
     if (contentRef.current) {
-      // Use setTimeout to ensure content has been rendered and measured
-      setTimeout(() => {
-        contentRef.current.measure((x, y, width, height, pageX, pageY) => {
-          // Calculate how much space is needed to fill the screen
-          // Subtract some extra space for the header and padding
-          const headerHeight = 100; // Adjust this based on your header height
-          const calculatedSpacerHeight = windowHeight - height - headerHeight;
-
-          // Set the spacer height to fill the remaining space
-          setSpacerHeight(Math.max(calculatedSpacerHeight, 0));
-        });
-      }, 300);
+      contentRef.current.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
+        const headerHeight = 100; // Adjust this based on your header height
+        const calculatedSpacerHeight = windowHeight - height - headerHeight;
+        setSpacerHeight(Math.max(calculatedSpacerHeight, 0));
+      });
     }
   }, [windowHeight]);
 
@@ -96,12 +102,16 @@ export default function HomeScreen() {
     }
   };
 
-  const getTimeFromDateTime = (datetime) => {
-    const date = new Date(datetime);
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`; // หรือ `${hours}:${minutes} น.` ถ้าอยากใส่ "น."
+  const deleteActivities = async (id: any) => {
+    try {
+      await deleteActivity(id);
+      await loadActivities()
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+      setLoading(false);
+    }
   };
+
 
   const formatThaiDate = (date: Date) => {
     const formatted = format(date, 'd MMMM yyyy', { locale: th });
@@ -109,7 +119,7 @@ export default function HomeScreen() {
     return formatted.replace(`${date.getFullYear()}`, `${yearBE}`);
   };
   
-  const Card = ({ id ,title, time, done, setDone, onEdit, onDelete }) => {
+  const Card: React.FC<CardProps> = ({ id, title, time, done, setDone, onEdit, onDelete }) => {
     const timeData = new Date(time);
     return (
       <View style={[styles.card, done && styles.cardDone]}>
@@ -124,7 +134,11 @@ export default function HomeScreen() {
             <Text style={[styles.title, done && styles.titleDone]}>{title}</Text>
           </View>
   
-          <Text style={styles.timeText}>{timeData.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).replace(":", " : ")}</Text>
+          <Text style={styles.timeText}>
+            {timeData
+              .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              .replace(':', ' : ')}
+          </Text>
   
           <View style={styles.iconGroup}>
             <TouchableOpacity onPress={onEdit}>
@@ -200,18 +214,17 @@ export default function HomeScreen() {
         {loading ? (
           <Text>กำลังโหลด...</Text>
         ) : activity.length > 0 ? (
-          activity.map((item, index) => (
+          (activity as ActivityItem[]).map((item, index) => (
             <Card
               key={index}
               id={item.activity_id}
               title={item.activity_name}
               time={item.datetime}
-              done={done}
+              done={!!done}
               setDone={setDone}
               onEdit={() => updateActivity(item.activity_id)}
-              onDelete={() => console.log('Delete')}
+              onDelete={() => deleteActivities(item.activity_id)}
             />
-
           ))
         ) : (
           <Text style={styles.fadedText}>ไม่มีการแจ้งเตือน</Text>

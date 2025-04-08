@@ -9,7 +9,7 @@ import {
   StyleSheet,
   Pressable,
 } from "react-native";
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, RouteProp } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   createTable,
@@ -19,7 +19,6 @@ import {
   fetchActivitiesByID,
   updateActivity
 } from "./database/database";
-import { RouteProp } from '@react-navigation/native';
 import { useLocalSearchParams } from 'expo-router';
 
 type RootStackParamList = {
@@ -67,7 +66,8 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
 
   const getDataByID = async () => {
     try {
-      const result = await fetchActivitiesByID(id);
+      const activityId = Array.isArray(id) ? parseInt(id[0]) : parseInt(id);
+      const result = await fetchActivitiesByID(activityId);
   
       if (result.length > 0) {
         const raw = result[0];
@@ -101,7 +101,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
     { id: 5, label: "เรียน", bgColor: "#B5D0D2" },
   ];
 
-  const handleTimeChange = (event, selectedTime) => {
+  const handleTimeChange = (event: any, selectedTime: any) => {
     const currentTime = selectedTime || data.datetime;
     setShowTimePicker(false);
     setData({
@@ -110,7 +110,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
     });
   };
 
-  const handleDateChange = (event, selectedDate) => {
+  const handleDateChange = (event: any, selectedDate: any) => {
     const currentDate = selectedDate || data.datetime;
     setShowDatePicker(false);
     setData({
@@ -139,9 +139,12 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
           data.datetime = new Date(data.datetime); 
         }
     
-        const formattedDatetime = data.datetime.toISOString();
-        data.datetime = formattedDatetime;  
-        await insertExampleActivity(data);
+        const formattedDatetime = (data.datetime as Date).toISOString(); // แปลงแค่ตรงนี้
+
+        await insertExampleActivity({
+          ...data,
+          datetime: formattedDatetime, 
+        });
         navigation.goBack();
       } catch (error) {
         console.error("Error adding activity:", error);
@@ -153,10 +156,13 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
           data.datetime = new Date(data.datetime); 
         }
       
-        const formattedDatetime = data.datetime.toISOString();
-        data.datetime = formattedDatetime;
+        const formattedDatetime = (data.datetime as Date).toISOString(); // แปลงแค่ตรงนี้
+
+        await updateActivity({
+          ...data,
+          datetime: formattedDatetime, 
+        });
       
-        await updateActivity(data); // 🔄 เปลี่ยนเป็น update
         navigation.goBack(); // ⬅️ กลับหน้าก่อนหน้า
       } catch (error) {
         console.error("Error updating activity:", error);
