@@ -1,7 +1,7 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch:  # ให้กด run เองจากหน้า GitHub
+  workflow_dispatch:
 
 jobs:
   build:
@@ -42,7 +42,7 @@ jobs:
           ./gradlew assembleRelease
 
       - name: Upload APK
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v2.2.4
         with:
           name: app-release.apk
           path: android/app/build/outputs/apk/release/app-release.apk
