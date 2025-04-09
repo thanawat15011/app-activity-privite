@@ -39,6 +39,7 @@ jobs:
       - name: Build Release APK
         run: |
           cd android
+          chmod +x gradlew   # ให้สิทธิ์ในการรัน gradlew
           ./gradlew assembleRelease
 
       - name: Create GitHub Release
