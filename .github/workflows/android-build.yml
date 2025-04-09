@@ -40,7 +40,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew   # ให้สิทธิ์ในการรัน gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --stacktrace   # ใช้ --stacktrace เพื่อดูรายละเอียดข้อผิดพลาด
 
       - name: Create GitHub Release
         id: release
