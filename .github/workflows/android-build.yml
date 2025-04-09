@@ -1,11 +1,11 @@
-name: Build Android APK
+name: Build and Upload Android APK
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    name: Build APK
+    name: Build APK and Upload
     runs-on: ubuntu-latest
 
     steps:
@@ -41,8 +41,21 @@ jobs:
           cd android
           ./gradlew assembleRelease
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v3
+      - name: Create GitHub Release
+        id: release
+        uses: gh-actions/create-release@v1
         with:
-          name: app-release.apk
-          path: android/app/build/outputs/apk/
+          tag_name: v1.0.0
+          release_name: "Release v1.0.0"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload APK
+        uses: svenstaro/upload-release-asset-action@v1
+        with:
+          upload_url: ${{ steps.release.outputs.upload_url }}
+          asset_path: android/app/build/outputs/apk/app-release.apk
+          asset_name: app-release.apk
+          asset_content_type: application/octet-stream
