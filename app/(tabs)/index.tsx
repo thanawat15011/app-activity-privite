@@ -17,6 +17,8 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
+import * as Permissions from 'expo-permissions';
 import { startOfWeek, addDays, isToday, format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import {
@@ -88,6 +90,44 @@ export default function HomeScreen() {
       loadActivities();
     }, [])  
   );
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(notification => {
+      console.log("Notification received:", notification);
+    });
+  
+    return () => {
+      // ทำการ unsubscribe เมื่อ component ถูก unmount
+      subscription.remove();
+    };
+  }, []);
+
+useEffect(() => {
+  const requestNotificationPermission = async () => {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      const { status: newStatus } = await Notifications.requestPermissionsAsync();
+      if (newStatus !== 'granted') {
+        console.log('Permission to receive notifications denied');
+        return;
+      }
+    }
+
+   
+    Notifications.scheduleNotificationAsync({
+      content: {
+        title: "📢 แจ้งเตือน",
+        body: "มีกิจกรรมวันนี้!",
+      },
+      trigger: null, 
+    });
+    console.log("การแจ้งเตือนถูกส่ง");
+  };
+
+  requestNotificationPermission();
+}, []);
+
+  
 
   const loadActivities = async () => {
     try {
