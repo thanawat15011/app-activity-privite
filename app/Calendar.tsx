@@ -12,8 +12,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { TouchableOpacity } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useEffect, useState, useRef } from "react";
-
+import { useLocalSearchParams } from "expo-router";
+import {
+  createTable,
+  insertExampleActivity,
+  fetchActivities,
+  deleteActivity,
+  fetchActivitiesByID,
+} from "./database/database";
 export default function CalendarScreen() {
+  const { id } = useLocalSearchParams();
   const today = new Date();
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth();
@@ -22,7 +30,18 @@ export default function CalendarScreen() {
   const [contentHeight, setContentHeight] = useState(0);
   const [spacerHeight, setSpacerHeight] = useState(0);
   const contentRef = useRef(null);
-
+  interface ActivityItem {
+    activity_id: string;
+    activity_name: string;
+    datetime: string;
+  }
+  interface CardProps {
+    id: string;
+    title: string;
+    time: string;
+    done: boolean;
+  }
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
   const monthNamesThai = [
     "มกราคม",
     "กุมภาพันธ์",
@@ -73,8 +92,8 @@ export default function CalendarScreen() {
   };
 
   const getCalendar = (date: any) => {
-    console.log('id:', date);
-    navigation.navigate("Calendar", { id: date });
+    console.log("id:", date);
+    navigation.navigate("Calendar");
 
     // navigation.navigate('(tabs)', { screen: 'index' });
     // navigation.navigate("");
@@ -96,7 +115,59 @@ export default function CalendarScreen() {
       }, 300);
     }
   }, [windowHeight]);
+  useEffect(() => {
+    if (id) {
+      getDataByID();
+    }
+  }, [id]);
 
+  const getDataByID = async () => {
+    try {
+      const activityId = Array.isArray(id) ? parseInt(id[0]) : parseInt(id);
+      const result = await fetchActivitiesByID(activityId);
+        console.log("result", result)
+      if (result.length > 0) {
+        const raw = result[0];
+
+        const transformed = {
+          activity_id: raw.activity_id,
+          activity_name: raw.activity_name,
+          activity_detail: raw.activity_detail,
+          activity_type: raw.activity_type,
+          importance: raw.importance === 1,
+          urgent: raw.urgent === 1,
+          datetime: new Date(raw.datetime),
+          notification_sound: raw.notification_sound === 1,
+          shaking: raw.shaking === 1,
+          show_more: raw.show_more === 1,
+        };
+
+        setData(transformed);
+        console.log("Transformed Result:", transformed);
+      }
+    } catch (error) {
+      console.error("Error fetching activity:", error);
+    }
+  };
+
+    const Card: React.FC<CardProps> = ({ id, title, time, done }) => {
+      const timeData = new Date(time);
+      return (
+        <View style={[styles.card, done && styles.cardDone]}>
+          <View style={styles.cardContent}>
+            <View style={styles.leftSection}>
+              <Text style={[styles.title, done && styles.titleDone]}>{title}</Text>
+            </View>
+    
+            <Text style={styles.timeText}>
+              {timeData
+                .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                .replace(':', ' : ')}
+            </Text>
+          </View>
+        </View>
+      );
+    };
   return (
     <View style={styles.container}>
       <ParallaxScrollView
@@ -117,40 +188,19 @@ export default function CalendarScreen() {
           </ThemedView>
 
           <ThemedView style={styles.calendarContainer}>
-            {weeks.map((week, weekIndex) => (
-              <View key={weekIndex} style={styles.weekRow}>
-                {week.map((day, dayIndex) => (
-                  <TouchableOpacity
-                    key={dayIndex}
-                    // onPress={() => getCalendar(day)}
-                    style={[
-                      styles.dayContainer,
-                      day.highlight && styles.highlighted,
-                      day.type === "prev" || day.type === "next"
-                        ? styles.fade
-                        : {},
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.dayAbbr,
-                        day.highlight && styles.highlightedText,
-                      ]}
-                    >
-                      {weekDaysShort[(dayIndex + 1) % 7]}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.dayNumber,
-                        day.highlight && styles.highlightedText,
-                      ]}
-                    >
-                      {day.date}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))}
+            {activity.length > 0 ? (
+              (activity as ActivityItem[]).map((item, index) => (
+                <Card
+                  key={index}
+                  id={item.activity_id}
+                  title={item.activity_name}
+                  time={item.datetime}
+                />
+              ))
+            ) : (
+              <Text style={styles.fadedText}>ไม่มีการแจ้งเตือน</Text>
+            )}
+            <ThemedText>{/* sadsad */}</ThemedText>
           </ThemedView>
         </View>
         <View style={{ height: spacerHeight }} />
@@ -164,6 +214,11 @@ export default function CalendarScreen() {
 }
 
 const styles = StyleSheet.create({
+  fadedText: {
+    opacity: 0.5,
+    color: "black",
+    fontSize: 18,
+  },
   container: {
     flex: 1,
     position: "relative",
@@ -228,5 +283,43 @@ const styles = StyleSheet.create({
     elevation: 5,
     bottom: 20,
     right: 20,
+  },
+  card: {
+    width: 350,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 10,
+    marginVertical: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardDone: {
+    backgroundColor: '#ddd', // เทาอ่อนเมื่อเสร็จ
+  },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  leftSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  title: {
+    fontSize: 16,
+    color: '#333',
+  },
+  titleDone: {
+    textDecorationLine: 'line-through',
+    color: '#222',
+  },
+  timeText: {
+    fontSize: 14,
+    color: '#333',
+    marginHorizontal: 10,
   },
 });
