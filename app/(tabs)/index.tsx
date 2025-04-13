@@ -6,7 +6,9 @@ import {
   Text,
   ScrollView,
   useWindowDimensions,
-  FlatList 
+  FlatList, 
+  Alert,
+  Modal
 } from "react-native";
 import { HelloWave } from "@/components/HelloWave";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
@@ -25,7 +27,8 @@ import {
   createTable,
   insertExampleActivity,
   fetchActivities,
-  deleteActivity
+  deleteActivity,
+  fetchActivitiesByID
 } from "../database/database";
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -52,7 +55,9 @@ export default function HomeScreen() {
     datetime: string;
   }
   const [activity, setActivity] = useState<ActivityItem[]>([]);
-
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [deleteItemId, setDeleteItemId] = useState<string | null>(null);
+  const [nameDelete, setNameDelete] = useState<string | null>(null);
     const today = new Date();
     const startWeek = startOfWeek(today, { weekStartsOn: 1 }); 
   
@@ -131,7 +136,6 @@ useEffect(() => {
 
   const loadActivities = async () => {
     try {
-      // สำหรับ expo-sqlite เวอร์ชัน 15+
       const result:any = await fetchActivities();
       setActivity(result);
       setLoading(false);
@@ -142,16 +146,20 @@ useEffect(() => {
     }
   };
 
-  const deleteActivities = async (id: any) => {
-    try {
-      await deleteActivity(id);
-      await loadActivities()
-    } catch (error) {
-      console.error('Error fetching activities:', error);
-      setLoading(false);
-    }
+  const deleteActivities = async(id: any) => {
+    let dataDelete = await fetchActivitiesByID(id)
+    setNameDelete(dataDelete[0].activity_name)
+    setDeleteItemId(id);
+    setDeleteDialogVisible(true);
   };
-
+  
+  const confirmDelete = async () => {
+    if (deleteItemId) {
+      await deleteActivity(deleteItemId);
+      await loadActivities();
+    }
+    setDeleteDialogVisible(false);
+  };
 
   const formatThaiDate = (date: Date) => {
     const formatted = format(date, 'd MMMM yyyy', { locale: th });
@@ -277,6 +285,36 @@ useEffect(() => {
       <TouchableOpacity style={styles.fab} onPress={addActivity}>
         <Ionicons name="add" size={32} color="white" />
       </TouchableOpacity>
+        <View>
+          <Modal
+          transparent={true}
+          visible={deleteDialogVisible}
+          animationType="fade"
+          onRequestClose={() => setDeleteDialogVisible(false)}
+        >
+          <View style={dialogStyles.overlay}>
+            <View style={dialogStyles.dialogContainer}>
+              <Text style={dialogStyles.dialogTitle}>คุณต้องการลบกิจกรรม</Text>
+              <Text style={dialogStyles.dialogMessage}>"{nameDelete}"</Text>
+              <Text style={dialogStyles.dialogMessage}>ใช่หรือไม่</Text>
+              <View style={dialogStyles.buttonContainer}>
+                <TouchableOpacity 
+                  style={dialogStyles.confirmButton} 
+                  onPress={confirmDelete}
+                >
+                  <Text style={dialogStyles.buttonText}>ใช่</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={dialogStyles.cancelButton} 
+                  onPress={() => setDeleteDialogVisible(false)}
+                >
+                  <Text style={dialogStyles.buttonText}>ไม่ใช่</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+        </View>
     </View>
   );
 }
@@ -438,5 +476,60 @@ const styles = StyleSheet.create({
   iconGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  
+});
+
+const dialogStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dialogContainer: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+  },
+  dialogTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: 'black',
+    textAlign: 'center',
+  },
+  dialogMessage: {
+    fontSize: 16,
+    marginBottom: 20,
+    color: 'black',
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  confirmButton: {
+    backgroundColor: '#E57373', 
+    padding: 10,
+    borderRadius: 5,
+    width: '28%',
+    alignItems: 'center',
+    marginLeft: 40
+  },
+  cancelButton: {
+    backgroundColor: '#424242', 
+    padding: 10,
+    borderRadius: 5,
+    width: '28%',
+    alignItems: 'center',
+    marginRight: 40
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
