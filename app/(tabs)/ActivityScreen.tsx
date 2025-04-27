@@ -9,7 +9,8 @@ import {
   StyleSheet,
   Pressable,
 } from "react-native";
-import { useNavigation, RouteProp } from '@react-navigation/native';
+import { useNavigation, RouteProp, useFocusEffect } from '@react-navigation/native';
+import { useCallback } from "react";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   createTable,
@@ -18,7 +19,7 @@ import {
   deleteActivity,
   fetchActivitiesByID,
   updateActivity
-} from "./database/database";
+} from "../database/database";
 import { useLocalSearchParams } from 'expo-router';
 
 type RootStackParamList = {
@@ -30,39 +31,52 @@ type ActivityScreenRouteProp = RouteProp<RootStackParamList, 'ActivityScreen'>;
 interface ActivityScreenProps {
   route: ActivityScreenRouteProp;
 }
+
+const defaultFormState = {
+  activity_id: 0,
+  activity_name: "", 
+  activity_detail: "",
+  activity_type: 0,
+  importance: false,
+  urgent: false,
+  datetime: new Date(),
+  notification_sound: false,
+  shaking: false,
+  show_more: false
+};
+
+console.log('defaultFormState :>> ', defaultFormState);
+
 const ActivityScreen: React.FC<ActivityScreenProps> = () => {
   const navigation = useNavigation();
   const { id } = useLocalSearchParams();
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [data, setData] = useState<{
-    activity_id: number;
-    activity_name: string;
-    activity_detail: string;
-    activity_type: number;
-    importance: boolean;
-    urgent: boolean;
-    datetime: Date;
-    notification_sound: boolean;
-    shaking: boolean;
-    show_more: boolean;
-  }>({
-    activity_id: 0,
-    activity_name: "", 
-    activity_detail: "",
-    activity_type: 0,
-    importance: false,
-    urgent: false,
-    datetime: new Date(),
-    notification_sound: false,
-    shaking: false,
-    show_more: false
-  });
+  const [data, setData] = useState({...defaultFormState});
+  
   useEffect(() => {
-    if (id) {
-      getDataByID();
-    }
-  }, [id]);
+    return () => {
+      setData({...defaultFormState});
+    };
+  }, []);
+
+    useFocusEffect(
+      useCallback(() => {
+        if (id) {
+          getDataByID();
+        } else {
+          setData({...defaultFormState});
+        }
+      }, [id])
+    );
+  
+  // useEffect(() => {
+  //   if (id) {
+  //     getDataByID();
+  //   } else {
+  //     setData({...defaultFormState});
+  //   }
+  // }, [id]);
 
   const getDataByID = async () => {
     try {
@@ -86,7 +100,6 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
         };
   
         setData(transformed);
-        console.log('Transformed Result:', transformed);
       }
     } catch (error) {
       console.error('Error fetching activity:', error);
@@ -94,11 +107,13 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
   };
 
   const activityTypes = [
-    { id: 1, label: "ออกกำลัง", bgColor: "#D6E5C0" },
-    { id: 2, label: "ยา", bgColor: "#FFF0A3" },
-    { id: 3, label: "พบหมอ", bgColor: "#F9BBCB" },
-    { id: 4, label: "สุขภาพ", bgColor: "#FFB775" },
-    { id: 5, label: "เรียน", bgColor: "#B5D0D2" },
+    { id: 1, label: "ส่วนตัว", bgColor: "#A2C384" },
+    { id: 2, label: "งานบ้าน", bgColor: "#FFABED" },
+    { id: 3, label: "เรียน", bgColor: "#A9F4FA" },
+    { id: 4, label: "สุขภาพ", bgColor: "#FF8A23" },
+    { id: 5, label: "เดินทาง", bgColor: "#FF8888" },
+    { id: 6, label: "เงิน", bgColor: "#DCB48B" },
+    { id: 7, label: "บันเทิง", bgColor: "#FFC18B" },
   ];
 
   const handleTimeChange = (event: any, selectedTime: any) => {
@@ -127,67 +142,67 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
   };
   
   const handleGoBack = () => {
+    setData({...defaultFormState});
     navigation.goBack();
   };
 
-
   const addActivity = async () => {
-    if(!id){
+    if (!data.activity_name || data.activity_name.trim() === '') {
+      alert('กรุณากรอกชื่อกิจกรรม');
+      return;
+    }
+    if (data.activity_type == 0) {
+      alert('กรุณาเลือกประเภทกิจกรรม');
+      return;
+    }
+  
+    if (!id) {
       try {
-        // ตรวจสอบว่า datetime เป็นอ็อบเจกต์ Date หรือไม่
         if (data.datetime && !(data.datetime instanceof Date)) {
-          data.datetime = new Date(data.datetime); 
+          data.datetime = new Date(data.datetime);
         }
-    
-        const formattedDatetime = (data.datetime as Date).toISOString(); // แปลงแค่ตรงนี้
-
+  
+        const formattedDatetime = (data.datetime as Date).toISOString();
+  
         await insertExampleActivity({
           ...data,
-          datetime: formattedDatetime, 
+          datetime: formattedDatetime,
         });
+  
+        setData({ ...defaultFormState });
         navigation.goBack();
       } catch (error) {
         console.error("Error adding activity:", error);
       }
-    }else if(id){
+    } else if (id) {
       try {
-        // ตรวจสอบว่า datetime เป็นอ็อบเจกต์ Date หรือไม่
         if (data.datetime && !(data.datetime instanceof Date)) {
-          data.datetime = new Date(data.datetime); 
+          data.datetime = new Date(data.datetime);
         }
-      
-        const formattedDatetime = (data.datetime as Date).toISOString(); // แปลงแค่ตรงนี้
-
+  
+        const formattedDatetime = (data.datetime as Date).toISOString();
+  
         await updateActivity({
           ...data,
-          datetime: formattedDatetime, 
+          datetime: formattedDatetime,
         });
-      
-        navigation.goBack(); // ⬅️ กลับหน้าก่อนหน้า
+  
+        setData({ ...defaultFormState });
+        navigation.goBack();
       } catch (error) {
         console.error("Error updating activity:", error);
-      }      
+      }
     }
-
   };
   
 
-
-//   const date = new Date('2025-04-06T19:35:00.000Z');
-
-// // แปลงเป็นเวลาไทย (UTC+7)
-// const thaiDate = new Date(date.setHours(date.getHours() + 7));
-
-// // แสดงผลวันที่และเวลา
-// const convertedDate = convertToBuddhistYear(thaiDate);
-// console.log(convertedDate);
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Rest of your component remains the same */}
       {/* Header with back button and title */}
       <View style={styles.header}>
         <View style={styles.topHeader}>
-          <TouchableOpacity style={styles.backButton}  onPress={handleGoBack}>
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
             <Text style={styles.backText}>{"<"}</Text>
           </TouchableOpacity>
           <Text style={styles.headerText}>{id ? 'แก้ไขกิจกรรม' : 'เพิ่มกิจกรรม'}</Text>
@@ -278,7 +293,6 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
         </TouchableOpacity>
       </View>
 
-      {/* เลือกวันที่ */}
       <View style={styles.timeRow}>
         <Text style={styles.timeText}>{convertToBuddhistYear(data.datetime)}</Text>
         <TouchableOpacity style={styles.timeButton} onPress={() => setShowDatePicker(true)}>
@@ -290,7 +304,6 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
           <Text style={styles.dividerText}>การแจ้งเตือน</Text>
         </View>
 
-        {/* Notification settings */}
         <View style={styles.switchRow}>
           <Text style={styles.switchLabel}>เสียงแจ้งเตือน</Text>
           <Switch 
@@ -328,6 +341,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
             trackColor={{ false: "#D9D9D9", true: "#6D8A6D" }}
             thumbColor={data.show_more ? "#FFFFFF" : "#F4F4F4"}
           />
+          
         </View>
 
         <TouchableOpacity style={styles.saveButton} onPress={addActivity}>
@@ -344,7 +358,6 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
         />
       )}
 
-      {/* แสดง DateTimePicker สำหรับวันที่ */}
       {showDatePicker && (
         <DateTimePicker
           value={data.datetime}
@@ -355,6 +368,7 @@ const ActivityScreen: React.FC<ActivityScreenProps> = () => {
     </ScrollView>
   );
 }
+
 export default ActivityScreen;
 
 const styles = StyleSheet.create({

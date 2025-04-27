@@ -4,25 +4,28 @@ import {
   Text,
   Dimensions,
   useWindowDimensions,
+  ScrollView
 } from "react-native";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Ionicons } from "@expo/vector-icons";
-import { TouchableOpacity } from "react-native";
+import { TouchableOpacity, Modal, FlatList } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useEffect, useState, useRef } from "react";
-
 export default function CalendarScreen() {
   const today = new Date();
-  const currentYear = today.getFullYear();
   const currentMonth = today.getMonth();
   const navigation = useNavigation();
   const { height: windowHeight } = useWindowDimensions();
   const [contentHeight, setContentHeight] = useState(0);
   const [spacerHeight, setSpacerHeight] = useState(0);
   const contentRef = useRef(null);
-
+  const [modalVisible, setModalVisible] = useState(false);
+  const currentWesternYear = today.getFullYear();
+  const currentThaiYear = currentWesternYear + 543;
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedYear, setSelectedYear] = useState(currentThaiYear);
   const monthNamesThai = [
     "มกราคม",
     "กุมภาพันธ์",
@@ -40,11 +43,11 @@ export default function CalendarScreen() {
 
   const weekDaysShort = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
-  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
+  const firstDayOfMonth = new Date(selectedYear-543, selectedMonth, 1).getDay();
 
-  const lastDateOfMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const lastDateOfMonth = new Date(selectedYear-543, selectedMonth + 1, 0).getDate();
 
-  const lastDateOfPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
+  const lastDateOfPrevMonth = new Date(selectedYear-543, selectedMonth, 0).getDate();
   const prevMonthDays = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
 
   const nextMonthDays = (7 - ((prevMonthDays + lastDateOfMonth) % 7)) % 7;
@@ -73,29 +76,127 @@ export default function CalendarScreen() {
   };
 
   const getCalendar = (date: any) => {
-    console.log('id:', date);
-    navigation.navigate("Calendar", { id: date });
+    console.log('selectedMonth :>> ', selectedMonth);
+    navigation.navigate("CalendarScreen", {
+      date: date.date,
+      month: selectedMonth + 1,
+      year: selectedYear-543,
+    });
 
-    // navigation.navigate('(tabs)', { screen: 'index' });
-    // navigation.navigate("");
   };
 
   useEffect(() => {
     if (contentRef.current) {
-      // Use setTimeout to ensure content has been rendered and measured
-      setTimeout(() => {
-        contentRef.current.measure((x, y, width, height, pageX, pageY) => {
-          // Calculate how much space is needed to fill the screen
-          // Subtract some extra space for the header and padding
-          const headerHeight = 100; // Adjust this based on your header height
+      contentRef.current.measure(
+        (
+          x: number,
+          y: number,
+          width: number,
+          height: number,
+          pageX: number,
+          pageY: number
+        ) => {
+          const headerHeight = 100;
           const calculatedSpacerHeight = windowHeight - height - headerHeight;
-
-          // Set the spacer height to fill the remaining space
           setSpacerHeight(Math.max(calculatedSpacerHeight, 0));
-        });
-      }, 300);
+        }
+      );
     }
   }, [windowHeight]);
+
+  const openMonthYearPicker = () => {
+    setModalVisible(true)
+  };
+
+  const monthsThai = [
+    "ม.ค",
+    "ก.พ",
+    "มี.ค",
+    "เม.ย",
+    "พ.ค",
+    "มิ.ย",
+    "ก.ค",
+    "ส.ค",
+    "ก.ย",
+    "ต.ค",
+    "พ.ย",
+    "ธ.ค",
+  ];
+
+  const MonthYearModal = ({ visible, onClose, onSelect, initialYear }) => {
+    const [year, setYear] = useState(initialYear);
+    const [showYearDropdown, setShowYearDropdown] = useState(false);
+  
+    const handleMonthSelect = (monthIndex) => {
+      onSelect({ year, month: monthIndex });
+      onClose();
+    };
+  
+    const yearList = Array.from({ length: 20 }, (_, i) => 2560 + i);
+  
+    return (
+      <Modal transparent visible={visible} animationType="fade">
+        <TouchableOpacity 
+          activeOpacity={1} 
+          style={styles.overlay} 
+          onPress={onClose}
+        >
+          <TouchableOpacity 
+            activeOpacity={1}
+            style={styles.modalContent} 
+            onPress={(e) => e.stopPropagation()}
+          >
+            <TouchableOpacity
+              style={styles.dropdownHeader}
+              onPress={() => setShowYearDropdown(!showYearDropdown)}
+            >
+              <Text style={styles.dropdownHeaderText}>{year} ▼</Text>
+            </TouchableOpacity>
+            {showYearDropdown && (
+              <View style={styles.dropdownListContainer}>
+                <ScrollView style={styles.dropdownList}>
+                  {yearList.map((y) => (
+                    <TouchableOpacity
+                      key={y}
+                      style={[
+                        styles.dropdownItem,
+                        y === year && styles.selectedDropdownItem
+                      ]}
+                      onPress={() => {
+                        setYear(y);
+                        setShowYearDropdown(false);
+                      }}
+                    >
+                      <Text 
+                        style={[
+                          styles.dropdownItemText,
+                          y === year && styles.selectedDropdownItemText
+                        ]}
+                      >
+                        {y}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+  
+            <View style={styles.monthGrid}>
+              {monthsThai.map((m, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => handleMonthSelect(idx)}
+                  style={styles.monthItem}
+                >
+                  <Text style={styles.monthText}>{m}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -112,7 +213,10 @@ export default function CalendarScreen() {
           <ThemedView style={styles.titleContainer}>
             <ThemedText type="title">ปฏิทิน</ThemedText>
             <ThemedText type="title">
-              {monthNamesThai[currentMonth]} {currentYear}
+              {monthNamesThai[selectedMonth]} {selectedYear}
+              <TouchableOpacity onPress={openMonthYearPicker}>
+                <Ionicons style={styles.monthYear}  name="calendar-outline" size={24} color="black" />
+              </TouchableOpacity>
             </ThemedText>
           </ThemedView>
 
@@ -122,10 +226,13 @@ export default function CalendarScreen() {
                 {week.map((day, dayIndex) => (
                   <TouchableOpacity
                     key={dayIndex}
-                    // onPress={() => getCalendar(day)}
+                    onPress={() => getCalendar(day)}
+                    disabled={
+                      day.type === "prev" || day.type === "next" ? true : false
+                    }
                     style={[
                       styles.dayContainer,
-                      day.highlight && styles.highlighted,
+                      day.highlight && currentMonth == selectedMonth && styles.highlighted,
                       day.type === "prev" || day.type === "next"
                         ? styles.fade
                         : {},
@@ -134,7 +241,10 @@ export default function CalendarScreen() {
                     <Text
                       style={[
                         styles.dayAbbr,
-                        day.highlight && styles.highlightedText,
+                        day.type === "prev" || day.type === "next"
+                        ? styles.fade
+                        : {},
+                        day.highlight && currentMonth == selectedMonth && styles.highlightedText,
                       ]}
                     >
                       {weekDaysShort[(dayIndex + 1) % 7]}
@@ -142,7 +252,10 @@ export default function CalendarScreen() {
                     <Text
                       style={[
                         styles.dayNumber,
-                        day.highlight && styles.highlightedText,
+                        day.type === "prev" || day.type === "next"
+                        ? styles.fade
+                        : {},
+                        day.highlight && currentMonth == selectedMonth && styles.highlightedText,
                       ]}
                     >
                       {day.date}
@@ -154,11 +267,24 @@ export default function CalendarScreen() {
           </ThemedView>
         </View>
         <View style={{ height: spacerHeight }} />
+        <View style={{ height: spacerHeight }} />
+
       </ParallaxScrollView>
 
       <TouchableOpacity style={styles.fab} onPress={addActivity}>
         <Ionicons name="add" size={32} color="white" />
       </TouchableOpacity>
+
+
+      <MonthYearModal
+        visible={modalVisible}
+        initialYear={selectedYear}
+        onClose={() => setModalVisible(false)}
+        onSelect={({ year, month }) => {
+          setSelectedYear(year);
+          setSelectedMonth(month);
+        }}
+      />
     </View>
   );
 }
@@ -229,4 +355,83 @@ const styles = StyleSheet.create({
     bottom: 20,
     right: 20,
   },
+
+
+  overlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#fffcf4',
+    padding: 15,
+    borderRadius: 10,
+    width: 280,
+    alignItems: 'center',
+  },
+  dropdownHeader: {
+    padding: 8,
+    borderRadius: 5,
+    width: '50%',
+    marginBottom: 15,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  dropdownHeaderText: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#333',
+  },
+  dropdownListContainer: {
+    maxHeight: 200,
+    width: '60%',
+    marginBottom: 15,
+    borderRadius: 5,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    position: 'absolute',
+    top: 55,
+    zIndex: 1000,
+  },
+  dropdownList: {
+    paddingVertical: 5,
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  selectedDropdownItem: {
+    backgroundColor: '#f0f0f0',
+  },
+  dropdownItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  selectedDropdownItemText: {
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  monthItem: {
+    width: '25%',
+    padding: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  monthText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  monthYear: {
+    marginLeft: 10
+  }
 });

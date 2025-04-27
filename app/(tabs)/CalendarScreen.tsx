@@ -10,8 +10,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Ionicons } from "@expo/vector-icons";
 import { TouchableOpacity } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { useEffect, useState, useRef } from "react";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocalSearchParams } from "expo-router";
 import {
   createTable,
@@ -19,12 +19,14 @@ import {
   fetchActivities,
   deleteActivity,
   fetchActivitiesByID,
-} from "./database/database";
+  fetchActivitiesByDateMonth,
+} from "../database/database";
 export default function CalendarScreen() {
-  const { id } = useLocalSearchParams();
+  const { date, month, year } = useLocalSearchParams();
   const today = new Date();
-  const currentYear = today.getFullYear();
-  const currentMonth = today.getMonth();
+  const currentYear = parseInt(year);
+  const currentMonth = month-1;
+  const [loading, setLoading] = useState(true);
   const navigation = useNavigation();
   const { height: windowHeight } = useWindowDimensions();
   const [contentHeight, setContentHeight] = useState(0);
@@ -87,18 +89,6 @@ export default function CalendarScreen() {
     weeks.push(days.slice(i, i + 7));
   }
 
-  const addActivity = () => {
-    navigation.navigate("ActivityScreen");
-  };
-
-  const getCalendar = (date: any) => {
-    console.log("id:", date);
-    navigation.navigate("Calendar");
-
-    // navigation.navigate('(tabs)', { screen: 'index' });
-    // navigation.navigate("");
-  };
-
   useEffect(() => {
     if (contentRef.current) {
       // Use setTimeout to ensure content has been rendered and measured
@@ -106,7 +96,7 @@ export default function CalendarScreen() {
         contentRef.current.measure((x, y, width, height, pageX, pageY) => {
           // Calculate how much space is needed to fill the screen
           // Subtract some extra space for the header and padding
-          const headerHeight = 100; // Adjust this based on your header height
+          const headerHeight = 100;
           const calculatedSpacerHeight = windowHeight - height - headerHeight;
 
           // Set the spacer height to fill the remaining space
@@ -115,59 +105,48 @@ export default function CalendarScreen() {
       }, 300);
     }
   }, [windowHeight]);
+
   useEffect(() => {
-    if (id) {
-      getDataByID();
-    }
-  }, [id]);
+    loadActivities();
+  }, [date, month, year]);
 
-  const getDataByID = async () => {
+  const addActivity = () => {
+    navigation.navigate("ActivityScreen");
+  };
+
+  const loadActivities = async () => {
     try {
-      const activityId = Array.isArray(id) ? parseInt(id[0]) : parseInt(id);
-      const result = await fetchActivitiesByID(activityId);
-        console.log("result", result)
-      if (result.length > 0) {
-        const raw = result[0];
-
-        const transformed = {
-          activity_id: raw.activity_id,
-          activity_name: raw.activity_name,
-          activity_detail: raw.activity_detail,
-          activity_type: raw.activity_type,
-          importance: raw.importance === 1,
-          urgent: raw.urgent === 1,
-          datetime: new Date(raw.datetime),
-          notification_sound: raw.notification_sound === 1,
-          shaking: raw.shaking === 1,
-          show_more: raw.show_more === 1,
-        };
-
-        setData(transformed);
-        console.log("Transformed Result:", transformed);
-      }
+      const paddedMonth = month.toString().padStart(2, "0");
+      let dataFromat = `${year}-${paddedMonth}-${date}`;
+      const result: any = await fetchActivitiesByDateMonth(dataFromat);
+      setActivity(result);
+      setLoading(false);
+      dataFromat = "";
     } catch (error) {
-      console.error("Error fetching activity:", error);
+      console.error("Error fetching activities:", error);
+      setLoading(false);
     }
   };
 
-    const Card: React.FC<CardProps> = ({ id, title, time, done }) => {
-      const timeData = new Date(time);
-      return (
-        <View style={[styles.card, done && styles.cardDone]}>
-          <View style={styles.cardContent}>
-            <View style={styles.leftSection}>
-              <Text style={[styles.title, done && styles.titleDone]}>{title}</Text>
-            </View>
-    
-            <Text style={styles.timeText}>
-              {timeData
-                .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                .replace(':', ' : ')}
-            </Text>
+  const Card: React.FC<CardProps> = ({ id, title, time }) => {
+    const timeData = new Date(time);
+    return (
+      <View style={[styles.card]}>
+        <View style={styles.cardContent}>
+          <View style={styles.leftSection}>
+            <Text style={[styles.title]}>{title}</Text>
           </View>
+
+          <Text style={styles.timeText}>
+            {timeData
+              .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+              .replace(":", " : ")}
+          </Text>
         </View>
-      );
-    };
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <ParallaxScrollView
@@ -183,29 +162,30 @@ export default function CalendarScreen() {
           <ThemedView style={styles.titleContainer}>
             <ThemedText type="title">ปฏิทิน</ThemedText>
             <ThemedText type="title">
-              {monthNamesThai[currentMonth]} {currentYear}
+              {monthNamesThai[currentMonth]} {parseInt(currentYear+543)}
             </ThemedText>
           </ThemedView>
-
-          <ThemedView style={styles.calendarContainer}>
-            {activity.length > 0 ? (
-              (activity as ActivityItem[]).map((item, index) => (
-                <Card
-                  key={index}
-                  id={item.activity_id}
-                  title={item.activity_name}
-                  time={item.datetime}
-                />
-              ))
-            ) : (
-              <Text style={styles.fadedText}>ไม่มีการแจ้งเตือน</Text>
-            )}
-            <ThemedText>{/* sadsad */}</ThemedText>
-          </ThemedView>
         </View>
+        <ThemedView style={styles.calendarContainer}>
+          {activity.length > 0 ? (
+            (activity as ActivityItem[]).map((item, index) => (
+              <Card
+                key={item.activity_id}
+                id={item.activity_id}
+                title={item.activity_name}
+                time={item.datetime}
+              />
+            ))
+          ) : (
+            <View style={styles.centeredContainer}>
+              <Text style={styles.fadedText}>ไม่มีการแจ้งเตือน</Text>
+            </View>
+          )}
+          <ThemedText>{/* sadsad */}</ThemedText>
+        </ThemedView>
         <View style={{ height: spacerHeight }} />
+        {/* <View style={{ height: spacerHeight }} /> */}
       </ParallaxScrollView>
-
       <TouchableOpacity style={styles.fab} onPress={addActivity}>
         <Ionicons name="add" size={32} color="white" />
       </TouchableOpacity>
@@ -229,14 +209,25 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFAF2",
     marginTop: 20,
   },
+
   calendarContainer: {
-    paddingHorizontal: 10,
+    flex: 1,
+    // justifyContent: "center",
+    marginTop: 10,
+    alignItems: "center",
     backgroundColor: "#FFFAF2",
   },
   weekRow: {
     flexDirection: "row",
     justifyContent: "center",
     marginBottom: 8,
+  },
+  centeredContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 250,
+    backgroundColor: "#FFFAF2",
   },
   dayContainer: {
     width: 45,
@@ -286,40 +277,40 @@ const styles = StyleSheet.create({
   },
   card: {
     width: 350,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 10,
     marginVertical: 6,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
     elevation: 2,
   },
   cardDone: {
-    backgroundColor: '#ddd', // เทาอ่อนเมื่อเสร็จ
+    backgroundColor: "#ddd",
   },
   cardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   leftSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   title: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   titleDone: {
-    textDecorationLine: 'line-through',
-    color: '#222',
+    textDecorationLine: "line-through",
+    color: "#222",
   },
   timeText: {
     fontSize: 14,
-    color: '#333',
+    color: "#333",
     marginHorizontal: 10,
   },
 });
