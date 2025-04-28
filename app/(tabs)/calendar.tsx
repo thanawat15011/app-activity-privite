@@ -76,7 +76,6 @@ export default function CalendarScreen() {
   };
 
   const getCalendar = (date: any) => {
-    console.log('selectedMonth :>> ', selectedMonth);
     navigation.navigate("CalendarScreen", {
       date: date.date,
       month: selectedMonth + 1,

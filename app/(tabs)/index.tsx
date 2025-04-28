@@ -75,6 +75,8 @@ export default function HomeScreen() {
     return {
       label: dayLabels[i],
       date: date.getDate(),
+      month: date.getMonth(),
+      year: date.getFullYear(),
       highlight: isToday(date),
     };
   });
@@ -251,6 +253,14 @@ const requestPermissions = async () =>{
     return formatted.replace(`${date.getFullYear()}`, `${yearBE}`);
   };
 
+  const getCalendar = (date: any) => {
+    navigation.navigate("CalendarScreen", {
+      date: date.date,
+      month: date.month + 1,
+      year: date.year,
+    });
+  };
+
   const Card: React.FC<CardProps> = ({
     id,
     title,
@@ -324,8 +334,9 @@ const requestPermissions = async () =>{
 
           <ThemedView style={styles.titleContainer}>
             {days.map((day, index) => (
-              <View
+              <TouchableOpacity
                 key={index}
+                onPress={() => getCalendar(day)}
                 style={[
                   styles.dayContainer,
                   day.highlight && styles.highlighted,
@@ -350,7 +361,7 @@ const requestPermissions = async () =>{
                 >
                   {day.date}
                 </Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </ThemedView>
         </View>
