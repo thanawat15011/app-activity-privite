@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "app",
+    "name": "zentime",
     "slug": "app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Logo.png",
+    "icon": "./assets/images/Webp.net-resizeimage.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,

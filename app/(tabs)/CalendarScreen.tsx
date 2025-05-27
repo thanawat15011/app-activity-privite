@@ -160,9 +160,9 @@ export default function CalendarScreen() {
           }}
         >
           <ThemedView style={styles.titleContainer}>
-            <ThemedText type="title">ปฏิทิน</ThemedText>
-            <ThemedText type="title">
-              {monthNamesThai[currentMonth]} {parseInt(currentYear+543)}
+            <ThemedText type="title" style={styles.titleText}>ปฏิทิน</ThemedText>
+            <ThemedText type="title" style={styles.titleText}>
+              {date} {monthNamesThai[currentMonth]} {parseInt(currentYear+543)}
             </ThemedText>
           </ThemedView>
         </View>
@@ -205,15 +205,15 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     flexDirection: "column",
-    marginBottom: 16,
+    marginBottom: 5,
     backgroundColor: "#FFFAF2",
-    marginTop: 20,
+    marginTop: 35, 
   },
 
   calendarContainer: {
     flex: 1,
     // justifyContent: "center",
-    marginTop: 10,
+    marginTop: 0,
     alignItems: "center",
     backgroundColor: "#FFFAF2",
   },
@@ -313,4 +313,7 @@ const styles = StyleSheet.create({
     color: "#333",
     marginHorizontal: 10,
   },
+  titleText:{
+    lineHeight: 35,  
+  }
 });

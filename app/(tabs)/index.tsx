@@ -250,7 +250,7 @@ const requestPermissions = async () =>{
   const formatThaiDate = (date: Date) => {
     const formatted = format(date, "d MMMM yyyy", { locale: th });
     const yearBE = date.getFullYear() + 543;
-    return formatted.replace(`${date.getFullYear()}`, `${yearBE}`);
+    return formatted.replace(`${date.getFullYear()}`,`${yearBE}`);
   };
 
   const getCalendar = (date: any) => {
@@ -329,7 +329,7 @@ const requestPermissions = async () =>{
           }}
         >
           <ThemedView style={styles.topContainer}>
-            <ThemedText type="title">{formatThaiDate(new Date())}</ThemedText>
+            <ThemedText type="title" style={styles.titleText}>{formatThaiDate(new Date())}</ThemedText>
           </ThemedView>
 
           <ThemedView style={styles.titleContainer}>
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 2,
     marginTop: 30,
     backgroundColor: "#FFFAF2",
   },
@@ -624,6 +624,10 @@ const styles = StyleSheet.create({
     left: 5,
     zIndex: -1,
   },
+  titleText:{
+    lineHeight: 35,  
+    letterSpacing: -1
+  }
 });
 
 const dialogStyles = StyleSheet.create({
@@ -678,4 +682,5 @@ const dialogStyles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
   },
+
 });

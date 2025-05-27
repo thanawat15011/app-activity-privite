@@ -81,7 +81,6 @@ export default function CalendarScreen() {
       month: selectedMonth + 1,
       year: selectedYear-543,
     });
-
   };
 
   useEffect(() => {
@@ -210,8 +209,8 @@ export default function CalendarScreen() {
           }}
         >
           <ThemedView style={styles.titleContainer}>
-            <ThemedText type="title">ปฏิทิน</ThemedText>
-            <ThemedText type="title">
+            <ThemedText type="title" style={styles.titleText}>ปฏิทิน</ThemedText>
+            <ThemedText type="title" style={styles.titleText}>
               {monthNamesThai[selectedMonth]} {selectedYear}
               <TouchableOpacity onPress={openMonthYearPicker}>
                 <Ionicons style={styles.monthYear}  name="calendar-outline" size={24} color="black" />
@@ -432,5 +431,8 @@ const styles = StyleSheet.create({
   },
   monthYear: {
     marginLeft: 10
+  },
+  titleText:{
+    lineHeight: 35,  
   }
 });
